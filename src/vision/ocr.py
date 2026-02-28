@@ -35,8 +35,8 @@ class MonsterDetector:
         try:
             from paddleocr import PaddleOCR
             return PaddleOCR(use_angle_cls=False, lang="ch", show_log=False)
-        except ImportError:
-            log.warning("PaddleOCR not installed, using stub")
+        except Exception as e:
+            log.warning("PaddleOCR unavailable (%s), using stub", e)
             return _StubOCR()
 
     def detect(self, frame: np.ndarray) -> List[DetectedMonster]:
