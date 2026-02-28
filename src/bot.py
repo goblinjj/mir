@@ -30,12 +30,7 @@ class MirBot:
         # Modules
         self.window = GameWindow(self.config.game.window_title)
         self.screen = ScreenCapture()
-        self.hp_mp = HpMpDetector(
-            hp_color_min=np.array(self.config.colors.hp_red),
-            hp_color_max=np.array(self.config.colors.hp_red_max),
-            mp_color_min=np.array(self.config.colors.mp_blue),
-            mp_color_max=np.array(self.config.colors.mp_blue_max),
-        )
+        self.hp_mp = HpMpDetector()
         self.monster_detector = MonsterDetector()
 
         self.keyboard = KeyboardSim()
@@ -103,10 +98,13 @@ class MirBot:
 
     def _update_state(self, frame: np.ndarray):
         """Update game state from a captured frame."""
-        hp_region = self.screen.crop_region(frame, self.config.screen.hp_bar_region)
-        mp_region = self.screen.crop_region(frame, self.config.screen.mp_bar_region)
-        self.game_state.player.hp_ratio = self.hp_mp.detect_bar_ratio(hp_region, "hp")
-        self.game_state.player.mp_ratio = self.hp_mp.detect_bar_ratio(mp_region, "mp")
+        hp_ratio, mp_ratio = self.hp_mp.detect_hp_mp(
+            frame,
+            self.config.screen.hp_text_region,
+            self.config.screen.mp_text_region,
+        )
+        self.game_state.player.hp_ratio = hp_ratio
+        self.game_state.player.mp_ratio = mp_ratio
 
         detected = self.monster_detector.detect(frame)
         self.game_state.monsters = [

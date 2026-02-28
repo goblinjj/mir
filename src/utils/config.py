@@ -45,6 +45,8 @@ class PetConfig:
 class ScreenConfig:
     hp_bar_region: List[int] = field(default_factory=lambda: [10, 40, 160, 52])
     mp_bar_region: List[int] = field(default_factory=lambda: [10, 56, 160, 68])
+    hp_text_region: List[int] = field(default_factory=lambda: [3, 838, 62, 18])
+    mp_text_region: List[int] = field(default_factory=lambda: [65, 838, 62, 18])
     game_area: List[int] = field(default_factory=lambda: [0, 0, 800, 600])
 
 
