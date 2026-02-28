@@ -10,14 +10,14 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.capture.window import WindowManager
+from src.capture.window import GameWindow
 from src.capture.screen import ScreenCapture
 from src.utils.config import load_config
 from PIL import Image, ImageDraw
 
 def main():
     config = load_config("config.yaml")
-    wm = WindowManager(config.game.window_title)
+    wm = GameWindow(config.game.window_title)
     if not wm.find_window():
         print("找不到游戏窗口，请确认游戏已启动")
         return
