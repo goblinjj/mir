@@ -8,21 +8,20 @@ from src.utils.logger import log
 
 
 def _init_ocr():
-    """Initialize a lightweight OCR engine for reading HP/MP numbers."""
-    try:
-        import pytesseract
-        # Quick smoke test
-        pytesseract.get_tesseract_version()
-        log.info("Using Tesseract OCR for HP/MP detection")
-        return _TesseractOCR()
-    except Exception:
-        pass
-
+    """Initialize OCR engine for reading HP/MP numbers. PaddleOCR preferred."""
     try:
         from paddleocr import PaddleOCR
         engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False)
         log.info("Using PaddleOCR for HP/MP detection")
         return _PaddleOCRWrapper(engine)
+    except Exception:
+        pass
+
+    try:
+        import pytesseract
+        pytesseract.get_tesseract_version()
+        log.info("Using Tesseract OCR for HP/MP detection")
+        return _TesseractOCR()
     except Exception:
         pass
 
