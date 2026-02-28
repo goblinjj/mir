@@ -1,0 +1,36 @@
+# MirBot 配置文件
+game:
+  window_title: "热血传奇"
+
+player:
+  hp_threshold: 0.5
+  mp_threshold: 0.3
+  potion_min_count: 5
+
+skills:
+  attack_single: "F1"
+  attack_aoe: "F2"
+  shield: "F3"
+  summon: "F4"
+  boss_skill: "F5"
+
+leveling:
+  mode: "fire"
+  patrol_points: []
+  loot_enabled: true
+  loot_filter: []
+
+pet:
+  pull_count: 3
+  safe_distance: 200
+
+screen:
+  hp_bar_region: [10, 40, 160, 52]
+  mp_bar_region: [10, 56, 160, 68]
+  game_area: [0, 0, 800, 600]
+
+colors:
+  hp_red: [180, 0, 0]
+  hp_red_max: [255, 80, 80]
+  mp_blue: [0, 0, 180]
+  mp_blue_max: [80, 80, 255]
