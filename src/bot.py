@@ -84,7 +84,11 @@ class MirBot:
         if frame is None:
             return
 
-        self._update_state(frame)
+        try:
+            self._update_state(frame)
+        except Exception as e:
+            log.error("Failed to update state: %s", e)
+            return
 
         ctx = {
             "game_state": self.game_state,
