@@ -4,7 +4,8 @@ import sys
 
 
 def main():
-    print("MirBot starting...")
+    from src.gui.main_window import run_gui
+    run_gui()
     return 0
 
 
