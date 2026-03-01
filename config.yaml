@@ -1,6 +1,6 @@
 # MirBot 配置文件
 game:
-  window_title: "热血传奇"
+  window_title: "圣山传说三区"
 
 player:
   hp_threshold: 0.5
@@ -28,8 +28,8 @@ pet:
 screen:
   hp_bar_region: [10, 40, 160, 52]
   mp_bar_region: [10, 56, 160, 68]
-  hp_text_region: [3, 838, 62, 18]    # "211/211" 文字区域 [x, y, 宽, 高]
-  mp_text_region: [65, 838, 62, 18]   # "814/816" 文字区域 [x, y, 宽, 高]
+  hp_text_region: [22, 1010, 62, 18]    # "211/211" 文字区域 [x, y, 宽, 高]
+  mp_text_region: [84, 1010, 62, 18]   # "814/816" 文字区域 [x, y, 宽, 高]
   game_area: [0, 0, 800, 600]
 
 colors:
