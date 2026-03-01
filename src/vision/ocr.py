@@ -49,16 +49,26 @@ class MonsterDetector:
     def detect(self, frame: np.ndarray) -> List[DetectedMonster]:
         """Detect all monsters in the given frame."""
         if frame is None or frame.size == 0:
+            log.debug("OCR: empty frame, skipping")
             return []
 
-        results = self.ocr_engine.ocr(frame, cls=False)
+        try:
+            results = self.ocr_engine.ocr(frame, cls=False)
+        except Exception as e:
+            log.error("OCR engine error: %s", e)
+            return []
+
         monsters = []
 
         if not results or not results[0]:
+            log.debug("OCR: no text detected in frame")
             return []
 
+        all_texts = []
         for line in results[0]:
             bbox, (text, confidence) = line
+            all_texts.append(f"{text.strip()}({confidence:.2f})")
+
             if confidence < 0.5:
                 continue
 
@@ -79,6 +89,9 @@ class MonsterDetector:
                 y=body_y,
                 confidence=confidence,
             ))
+
+        log.info("OCR raw: [%s] → matched %d monsters (whitelist=%s)",
+                 ", ".join(all_texts), len(monsters), self.monster_names)
 
         return monsters
 

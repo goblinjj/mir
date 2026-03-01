@@ -182,9 +182,8 @@ class MirBot:
         self.game_state.player.hp_ratio = hp_ratio
         self.game_state.player.mp_ratio = mp_ratio
         # Player is always at screen center in 传奇
-        ga = self.config.screen.game_area
-        self.game_state.player.screen_x = ga[0] + ga[2] // 2
-        self.game_state.player.screen_y = ga[1] + ga[3] // 2
+        self.game_state.player.screen_x = self.executor.center_x
+        self.game_state.player.screen_y = self.executor.center_y
 
         detected = self.monster_detector.detect(frame)
         self.game_state.monsters = [
