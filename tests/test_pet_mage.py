@@ -132,6 +132,53 @@ class TestPatrolWaypointNavigation:
         assert len(move_actions) == 1
 
 
+class TestPatrolStuckAvoidance:
+    def test_stuck_deflects_direction_in_waypoint_mode(self):
+        """When stuck_count >= 3, patrol deflects direction to avoid wall."""
+        nav = make_navigator([[100, 50]])
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (50, 50)  # target East (direction 2)
+        ctx["game_state"].stuck_count = 3
+
+        state = PatrolState()
+        state.execute(ctx)
+
+        move = [a for a in ctx["actions"] if a["type"] == "patrol_move"][0]
+        # East=2, first offset is +2 → direction 4 (South)
+        assert move["direction"] == 4
+
+    def test_stuck_resets_on_movement(self):
+        """When not stuck, avoidance state resets."""
+        nav = make_navigator([[100, 50]])
+        state = PatrolState()
+        state._stuck_phase = 1
+        state._stuck_ticks = 3
+
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (50, 50)
+        ctx["game_state"].stuck_count = 0
+        state.execute(ctx)
+
+        assert state._stuck_phase == 0
+        assert state._stuck_ticks == 0
+
+    def test_stuck_cycles_phases(self):
+        """After 5 ticks in one phase, move to next avoidance phase."""
+        nav = make_navigator([[100, 50]])
+        state = PatrolState()
+        state._stuck_ticks = 4  # will become 5 → cycle
+
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (50, 50)
+        ctx["game_state"].stuck_count = 5
+        state.execute(ctx)
+
+        assert state._stuck_phase == 1  # cycled to next phase
+
+
 class TestPatrolTeleport:
     def test_teleport_resets_to_nearest_waypoint(self):
         """Large position jump triggers nearest waypoint search."""
