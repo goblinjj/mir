@@ -13,8 +13,15 @@ class MinimapAnalyzer:
         self.white_threshold = white_threshold
         self.black_threshold = black_threshold
 
+    # Player dot is typically 3x3 to 5x5 pixels (~9-25 area).
+    # Portal icons ("门" shape) are much larger (50+ pixels).
+    _DOT_MAX_PIXELS = 30
+
     def detect_player_position(self, frame: np.ndarray) -> Optional[Tuple[int, int]]:
         """Detect the white dot (player) on the minimap frame.
+
+        The player dot is a small white cluster (~9-25 pixels).
+        Larger white shapes (portal icons, text) are filtered out.
 
         Args:
             frame: BGR or RGB minimap image (H, W, 3).
@@ -32,23 +39,28 @@ class MinimapAnalyzer:
         if not np.any(white_mask):
             return None
 
-        # Label connected components to find the largest white cluster
+        # Label connected components
         labeled = self._label_components(white_mask)
         if labeled is None:
             return None
 
-        # Find the label with the most pixels
-        labels = labeled[labeled > 0]
-        if len(labels) == 0:
+        unique, counts = np.unique(labeled[labeled > 0], return_counts=True)
+        if len(unique) == 0:
             return None
 
-        unique, counts = np.unique(labels, return_counts=True)
-        best_label = unique[np.argmax(counts)]
+        # Filter: keep only small clusters (player dot), reject portals/text
+        # Sort by size ascending — pick the smallest that meets minimum size
+        order = np.argsort(counts)
+        for idx in order:
+            pixel_count = counts[idx]
+            if pixel_count > self._DOT_MAX_PIXELS:
+                break  # remaining are all larger, skip
+            if pixel_count >= 1:
+                label = unique[idx]
+                ys, xs = np.where(labeled == label)
+                return (int(np.mean(xs)), int(np.mean(ys)))
 
-        ys, xs = np.where(labeled == best_label)
-        cx = int(np.mean(xs))
-        cy = int(np.mean(ys))
-        return (cx, cy)
+        return None
 
     @staticmethod
     def _label_components(mask: np.ndarray) -> np.ndarray:

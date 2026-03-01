@@ -33,12 +33,17 @@ class WaypointNavigator:
 
     def update_path(self, current_pos: Tuple[int, int],
                     walkability_mask: Optional[np.ndarray] = None,
+                    raw_mask: Optional[np.ndarray] = None,
                     force: bool = False) -> None:
         """Compute or update the BFS path to current waypoint.
 
+        Tries the (eroded) walkability_mask first for center-of-corridor paths.
+        Falls back to raw_mask if the eroded mask blocks the route.
+
         Args:
             current_pos: (x, y) player position on minimap.
-            walkability_mask: Boolean mask (H, W) from MinimapAnalyzer.
+            walkability_mask: Eroded boolean mask (H, W) — preferred for paths.
+            raw_mask: Original boolean mask (H, W) — fallback for tight spaces.
             force: Force recomputation even if path looks valid.
         """
         if not self.waypoints or walkability_mask is None:
@@ -51,14 +56,20 @@ class WaypointNavigator:
         if not needs_replan:
             return
 
-        path = MinimapAnalyzer.find_path(walkability_mask, current_pos,
-                                         (target[0], target[1]))
+        goal = (target[0], target[1])
+        path = MinimapAnalyzer.find_path(walkability_mask, current_pos, goal)
+
+        # Fallback: if eroded mask blocks path, try raw mask
+        if not path and raw_mask is not None:
+            path = MinimapAnalyzer.find_path(raw_mask, current_pos, goal)
+            if path:
+                log.info("Navigator: using raw mask fallback (eroded too tight)")
+
         self._path = path
         self._path_index = 0
         self._path_target_index = self.current_index
 
         if path:
-            # Log first few steps for debugging
             preview = path[:10]
             log.info("Navigator: planned path with %d steps to waypoint %d, "
                      "start=%s, first steps: %s",

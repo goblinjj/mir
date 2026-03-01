@@ -40,20 +40,32 @@ class TestWhiteDotDetection:
         pos = self.analyzer.detect_player_position(frame)
         assert pos is None
 
-    def test_detect_brightest_cluster(self):
-        """If multiple bright areas, return the one with most white pixels."""
-        frame = _make_frame(dots=[(30, 30), (80, 90)])
-        # Add extra white pixels around (80, 90) to make it the larger cluster
-        for dx in range(-2, 3):
-            for dy in range(-2, 3):
+    def test_detect_small_dot_ignores_large_portal(self):
+        """Player dot (small) should be detected, portal icon (large) ignored."""
+        frame = _make_frame(dots=[(30, 30)])  # small player dot (3x3 = 9px)
+        # Add a large portal-like white shape at (80, 90)
+        for dx in range(-5, 6):
+            for dy in range(-5, 6):
                 ny, nx = 90 + dy, 80 + dx
                 if 0 <= ny < 180 and 0 <= nx < 160:
                     frame[ny, nx] = (255, 255, 255)
         pos = self.analyzer.detect_player_position(frame)
         assert pos is not None
         x, y = pos
-        assert abs(x - 80) <= 2
-        assert abs(y - 90) <= 2
+        # Should pick the small dot at (30, 30), not the large portal
+        assert abs(x - 30) <= 1
+        assert abs(y - 30) <= 1
+
+    def test_detect_multiple_small_dots_picks_smallest(self):
+        """With multiple small clusters, picks the smallest."""
+        frame = _make_frame(dots=[(80, 90)])  # 3x3 = 9px dot
+        # Add a single-pixel white dot
+        frame[50, 50] = (255, 255, 255)
+        pos = self.analyzer.detect_player_position(frame)
+        assert pos is not None
+        x, y = pos
+        # Should pick the 1-pixel dot
+        assert x == 50 and y == 50
 
 
 class TestWalkability:

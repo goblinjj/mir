@@ -58,6 +58,7 @@ class PatrolState(State):
         navigator = ctx.get("navigator")
         minimap_pos = ctx.get("minimap_pos")
         walkability_mask = ctx.get("walkability_mask")
+        raw_mask = ctx.get("raw_mask")
         direction = None
 
         if navigator and minimap_pos and navigator.waypoints:
@@ -76,7 +77,7 @@ class PatrolState(State):
             # BFS path planning (replan when stuck or path invalid)
             force_replan = gs.stuck_count >= 3
             navigator.update_path(minimap_pos, walkability_mask,
-                                  force=force_replan)
+                                  raw_mask=raw_mask, force=force_replan)
             if force_replan:
                 gs.stuck_count = 0
 

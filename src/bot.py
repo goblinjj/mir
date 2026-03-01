@@ -118,9 +118,13 @@ class MirBot:
             self._last_minimap_pos = minimap_pos
 
         walkability_mask = None
+        raw_mask = None
         if self.last_minimap_frame is not None:
+            raw_mask = self.minimap_analyzer.get_walkability_mask(
+                self.last_minimap_frame
+            )
             walkability_mask = self.minimap_analyzer.get_walkability_mask(
-                self.last_minimap_frame, erode=2
+                self.last_minimap_frame, erode=4
             )
 
         ctx = {
@@ -132,6 +136,7 @@ class MirBot:
             "navigator": self.navigator,
             "minimap_pos": self._last_minimap_pos,
             "walkability_mask": walkability_mask,
+            "raw_mask": raw_mask,
         }
         self.strategy.update(ctx)
 
