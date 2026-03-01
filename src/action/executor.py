@@ -43,6 +43,14 @@ class ActionExecutor:
             self._pull(action)
         elif action_type == "evade_monsters":
             self._evade(action)
+        elif action_type == "push_skill":
+            self._push_skill(action)
+        elif action_type == "escape_scroll":
+            self._escape_scroll(action)
+        elif action_type == "move_direction":
+            self._move_direction(action)
+        elif action_type == "approach_monster":
+            self._approach(action)
         elif action_type == "revive":
             log.info("Reviving...")
         elif action_type == "go_town_buy":
@@ -65,12 +73,26 @@ class ActionExecutor:
         log.info(f"Skill: {skill_name} ({key})")
 
     def _patrol_move(self, action: dict):
-        """Right-click a random position to wander around."""
-        margin = 50
-        x = random.randint(self.game_area[0] + margin, self.game_area[0] + self.game_area[2] - margin)
-        y = random.randint(self.game_area[1] + margin, self.game_area[1] + self.game_area[3] - margin)
-        self.mouse.click(x, y, button="right")
-        log.info(f"Patrol: right-click ({x}, {y})")
+        """Right-click in a specific direction to explore the map."""
+        direction = action.get("direction", 0)
+        self._move_direction({"direction": direction})
+
+    def _move_direction(self, action: dict):
+        """Move in one of 8 directions (0=N, 1=NE, 2=E, ... 7=NW)."""
+        direction = action.get("direction", 0)
+        # 8 directions: N, NE, E, SE, S, SW, W, NW
+        angles = [270, 315, 0, 45, 90, 135, 180, 225]  # degrees, 0=right
+        angle_rad = math.radians(angles[direction % 8])
+        dist = 250  # click far enough to ensure continuous movement
+        target_x = int(self.center_x + math.cos(angle_rad) * dist)
+        target_y = int(self.center_y + math.sin(angle_rad) * dist)
+        # Clamp within game area
+        margin = 20
+        target_x = max(self.game_area[0] + margin, min(target_x, self.game_area[0] + self.game_area[2] - margin))
+        target_y = max(self.game_area[1] + margin, min(target_y, self.game_area[1] + self.game_area[3] - margin))
+        self.mouse.click(target_x, target_y, button="right")
+        dir_names = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        log.info(f"Move {dir_names[direction % 8]}: right-click ({target_x}, {target_y})")
 
     def _pull(self, action: dict):
         """Run toward monster then run back to pull it to pet."""
@@ -126,6 +148,25 @@ class ActionExecutor:
 
         self.mouse.click(target_x, target_y, button="right")
         log.info(f"Evade: right-click ({target_x}, {target_y}), away from ({avg_x:.0f}, {avg_y:.0f})")
+
+    def _approach(self, action: dict):
+        """Right-click toward monster to get closer."""
+        target = action.get("target")
+        if not target:
+            return
+        self.mouse.click(target["x"], target["y"], button="right")
+        log.info(f"Approach: toward ({target['x']}, {target['y']})")
+
+    def _push_skill(self, action: dict):
+        """Press F2 to push nearby monsters away."""
+        key = self.skill_keys.get("attack_aoe", "F2")
+        self.kb.press_key(key)
+        log.info(f"Push skill ({key})")
+
+    def _escape_scroll(self, action: dict):
+        """Press key 1 to use random scroll and escape."""
+        self.kb.press_key("1")
+        log.info("Escape scroll (1)")
 
     def execute_all(self, actions: list):
         """Execute a list of actions."""

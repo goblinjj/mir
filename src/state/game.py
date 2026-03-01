@@ -14,6 +14,8 @@ class GameState:
     monsters: List[Dict] = field(default_factory=list)
     current_map: str = ""
     pet_alive: bool = False
+    stuck_count: int = 0
+    last_move_tick: int = 0
 
     def has_monsters(self) -> bool:
         return len(self.monsters) > 0

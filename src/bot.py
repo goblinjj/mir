@@ -1,5 +1,6 @@
 """Main bot loop — ties all modules together."""
 
+import re
 import time
 from typing import Optional
 
@@ -100,6 +101,7 @@ class MirBot:
             "game_state": self.game_state,
             "hp_threshold": self.config.player.hp_threshold,
             "mp_threshold": self.config.player.mp_threshold,
+            "grid_pixels": self.config.pet.grid_pixels,
             "actions": [],
         }
         self.strategy.update(ctx)
@@ -131,6 +133,39 @@ class MirBot:
         if detected:
             names = [m.name for m in detected]
             log.info(f"OCR detected: {names}")
+
+        # Read map coordinates for movement detection
+        coord_region = self.config.screen.coord_text_region
+        if coord_region[2] > 0 and coord_region[3] > 0:
+            self._update_coordinates(frame, coord_region)
+
+    _COORD_PATTERN = re.compile(r"(\d+)\D+(\d+)")
+
+    def _update_coordinates(self, frame: np.ndarray, region: list):
+        """Read map coordinates from screen and detect stuck state."""
+        coord_img = frame[region[1]:region[1]+region[3], region[0]:region[0]+region[2]]
+        if coord_img.size == 0 or self.hp_mp.ocr is None:
+            return
+
+        try:
+            text = self.hp_mp.ocr.read_text(coord_img)
+            match = self._COORD_PATTERN.search(text)
+            if not match:
+                return
+
+            new_x, new_y = int(match.group(1)), int(match.group(2))
+            old_x, old_y = self.game_state.player.map_x, self.game_state.player.map_y
+
+            if old_x >= 0 and old_y >= 0:
+                if new_x == old_x and new_y == old_y:
+                    self.game_state.stuck_count += 1
+                else:
+                    self.game_state.stuck_count = 0
+
+            self.game_state.player.map_x = new_x
+            self.game_state.player.map_y = new_y
+        except Exception:
+            pass
 
     def set_mode(self, mode: str):
         """Switch leveling mode ('fire' or 'pet')."""

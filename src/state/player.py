@@ -10,6 +10,8 @@ class PlayerState:
     mp_ratio: float = 1.0
     screen_x: int = 0
     screen_y: int = 0
+    map_x: int = -1
+    map_y: int = -1
     level: int = 0
     has_pet: bool = False
 

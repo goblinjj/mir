@@ -40,6 +40,7 @@ class LevelingConfig:
 class PetConfig:
     pull_count: int = 3
     safe_distance: int = 200
+    grid_pixels: int = 48
 
 
 @dataclass
@@ -49,6 +50,7 @@ class ScreenConfig:
     hp_text_region: List[int] = field(default_factory=lambda: [3, 838, 62, 18])
     mp_text_region: List[int] = field(default_factory=lambda: [65, 838, 62, 18])
     game_area: List[int] = field(default_factory=lambda: [0, 0, 800, 600])
+    coord_text_region: List[int] = field(default_factory=lambda: [0, 0, 0, 0])
 
 
 @dataclass
