@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.strategy.pet_mage import build_pet_mage_fsm, PatrolState
+from src.strategy.pet_mage import build_pet_mage_fsm, PatrolState, ApproachState
 from src.strategy.navigator import WaypointNavigator
 from src.state.game import GameState
 
@@ -99,6 +99,97 @@ def test_evade_escape_scroll_on_critical_hp_drop():
     assert sm.current_state.name == "evade"
     action_types = [a["type"] for a in ctx["actions"]]
     assert "escape_scroll" in action_types
+
+
+def test_evade_stuck_uses_push_skill():
+    """Stuck in evade (surrounded) → F2 push skill, reset stuck_count."""
+    sm = build_pet_mage_fsm()
+    ctx = make_ctx(pet_alive=True,
+                   monsters=[{"name": "鸡", "x": 410, "y": 310, "type": "normal"}])
+    ctx["game_state"].stuck_count = 3
+    sm.set_initial("evade")
+    sm.update(ctx)
+    action_types = [a["type"] for a in ctx["actions"]]
+    assert "push_skill" in action_types
+    assert ctx["game_state"].stuck_count == 0
+
+
+def test_evade_to_approach_when_monster_far():
+    """Monster moves far away (>5 grids) during evade → switch to approach."""
+    sm = build_pet_mage_fsm()
+    # Monster at 700,300 is far from player at 400,300 (300px > 5*48=240px)
+    ctx = make_ctx(pet_alive=True,
+                   monsters=[{"name": "鸡", "x": 700, "y": 300, "type": "normal"}])
+    sm.set_initial("evade")
+    sm.update(ctx)
+    assert sm.current_state.name == "approach"
+
+
+class TestApproachWallStuck:
+    """Tests for approach state wall-stuck sidestep logic."""
+
+    def test_approach_sidesteps_when_stuck(self):
+        """stuck_count >= 3 → sidestep perpendicular instead of straight approach."""
+        state = ApproachState()
+        ctx = make_ctx(pet_alive=True,
+                       monsters=[{"name": "鸡", "x": 700, "y": 300, "type": "normal"}])
+        ctx["game_state"].stuck_count = 3
+
+        state.execute(ctx)
+
+        # stuck_count should be reset
+        assert ctx["game_state"].stuck_count == 0
+        # Should have a sidestep action (target differs from monster position)
+        assert len(ctx["actions"]) == 1
+        target = ctx["actions"][0]["target"]
+        # Sidestep target should NOT be at monster x=700
+        assert target["x"] != 700 or target["y"] != 300
+
+    def test_sidestep_lasts_multiple_ticks(self):
+        """Sidestep continues for _SIDESTEP_TICKS before resuming normal approach."""
+        state = ApproachState()
+        monster = [{"name": "鸡", "x": 700, "y": 300, "type": "normal"}]
+
+        # Trigger sidestep
+        ctx = make_ctx(pet_alive=True, monsters=monster)
+        ctx["game_state"].stuck_count = 3
+        state.execute(ctx)
+
+        # Next ticks should still sidestep (remaining = 2)
+        for _ in range(ApproachState._SIDESTEP_TICKS - 1):
+            ctx2 = make_ctx(pet_alive=True, monsters=monster)
+            state.execute(ctx2)
+            target = ctx2["actions"][0]["target"]
+            assert target["x"] != 700 or target["y"] != 300
+
+        # After sidestep exhausted, should approach monster directly
+        ctx3 = make_ctx(pet_alive=True, monsters=monster)
+        state.execute(ctx3)
+        assert ctx3["actions"][0]["target"]["x"] == 700
+
+    def test_sidestep_alternates_direction(self):
+        """Each stuck event alternates sidestep direction."""
+        state = ApproachState()
+        monster = [{"name": "鸡", "x": 700, "y": 300, "type": "normal"}]
+
+        # First stuck → sidestep direction A
+        ctx1 = make_ctx(pet_alive=True, monsters=monster)
+        ctx1["game_state"].stuck_count = 3
+        state.execute(ctx1)
+        first_y = ctx1["actions"][0]["target"]["y"]
+
+        # Drain remaining ticks
+        for _ in range(ApproachState._SIDESTEP_TICKS - 1):
+            state.execute(make_ctx(pet_alive=True, monsters=monster))
+
+        # Second stuck → sidestep direction B (opposite)
+        ctx2 = make_ctx(pet_alive=True, monsters=monster)
+        ctx2["game_state"].stuck_count = 3
+        state.execute(ctx2)
+        second_y = ctx2["actions"][0]["target"]["y"]
+
+        # Perpendicular to (300,0) → y should go opposite directions
+        assert first_y != second_y
 
 
 def make_navigator(waypoints=None, arrival_radius=5):

@@ -118,8 +118,18 @@ class PatrolState(State):
 
 
 class ApproachState(State):
-    """Run toward monster until within evade distance."""
+    """Run toward monster until within evade distance.
+
+    Wall-stuck detection: if stuck_count >= 3 (coordinates unchanged),
+    sidestep perpendicular to the monster direction for a few ticks,
+    then resume approaching.
+    """
     name = "approach"
+    _SIDESTEP_TICKS = 3
+
+    def __init__(self):
+        self._sidestep_remaining = 0
+        self._sidestep_dir = 1  # +1 or -1 (clockwise / counter-clockwise)
 
     def execute(self, ctx: dict) -> Optional[str]:
         gs = ctx["game_state"]
@@ -136,10 +146,39 @@ class ApproachState(State):
         evade_dist = 3 * grid_px
         target = gs.nearest_monster()
 
-        if target:
-            dist = math.hypot(target["x"] - gs.player.screen_x, target["y"] - gs.player.screen_y)
-            if dist <= evade_dist:
-                return "evade"
+        if not target:
+            return None
+
+        dist = math.hypot(target["x"] - gs.player.screen_x,
+                          target["y"] - gs.player.screen_y)
+        if dist <= evade_dist:
+            return "evade"
+
+        # Wall-stuck: coordinates haven't changed for several ticks
+        if gs.stuck_count >= 3 and self._sidestep_remaining <= 0:
+            self._sidestep_remaining = self._SIDESTEP_TICKS
+            self._sidestep_dir *= -1  # alternate direction each time
+            gs.stuck_count = 0
+            log.info("Approach: wall stuck, sidestepping")
+
+        if self._sidestep_remaining > 0:
+            # Move perpendicular to monster direction
+            dx = target["x"] - gs.player.screen_x
+            dy = target["y"] - gs.player.screen_y
+            # Rotate 90°: (dx,dy) → (-dy,dx) or (dy,-dx)
+            perp_x = -dy * self._sidestep_dir
+            perp_y = dx * self._sidestep_dir
+            length = math.hypot(perp_x, perp_y)
+            if length > 0:
+                perp_x, perp_y = perp_x / length, perp_y / length
+            step_dist = 200
+            sidestep_target = {
+                "x": int(gs.player.screen_x + perp_x * step_dist),
+                "y": int(gs.player.screen_y + perp_y * step_dist),
+            }
+            ctx["actions"].append({"type": "approach_monster", "target": sidestep_target})
+            self._sidestep_remaining -= 1
+        else:
             ctx["actions"].append({"type": "approach_monster", "target": target})
 
         return None
@@ -148,9 +187,12 @@ class ApproachState(State):
 class EvadeState(State):
     """Maintain safe distance from monsters, let pet tank.
 
-    Emergency reactions based on HP drops:
-    - HP drops (被打了) → F2 push skill + evade
-    - HP < 80% and drops again → key 1 escape scroll
+    - Continuously checks nearest monster distance:
+      - Too close (< 3 grids) → evade away
+      - Far enough (> 5 grids) → switch to approach
+    - Stuck detection: if coordinates don't change (stuck_count >= 3),
+      use F2 push skill to break free
+    - HP drops → F2 push; HP < 80% and drops → escape scroll
     """
     name = "evade"
 
@@ -165,24 +207,34 @@ class EvadeState(State):
         if not gs.has_monsters():
             return "patrol"
 
+        grid_px = ctx.get("grid_pixels", 48)
+        evade_dist = 3 * grid_px
+        approach_dist = 5 * grid_px
+        target = gs.nearest_monster()
+
         # Emergency: HP dropped (being hit)
         if gs.hp_dropped:
             if gs.player.hp_ratio < 0.8:
-                # HP < 80% and still dropping → escape with scroll
                 ctx["actions"].append({"type": "escape_scroll"})
                 log.info("HP critical and dropping! Using escape scroll")
                 return None
             else:
-                # HP dropped but still above 80% → F2 push + evade
                 ctx["actions"].append({"type": "push_skill"})
                 log.info("HP dropped! Using push skill (F2)")
 
-        grid_px = ctx.get("grid_pixels", 48)
-        evade_dist = 3 * grid_px
-        target = gs.nearest_monster()
+        # Stuck detection: coordinates not changing → surrounded, use F2
+        if gs.stuck_count >= 3:
+            ctx["actions"].append({"type": "push_skill"})
+            gs.stuck_count = 0
+            log.info("Evade: stuck (surrounded), using push skill (F2)")
 
+        # Distance-based decisions on nearest monster
         if target:
-            dist = math.hypot(target["x"] - gs.player.screen_x, target["y"] - gs.player.screen_y)
+            dist = math.hypot(target["x"] - gs.player.screen_x,
+                              target["y"] - gs.player.screen_y)
+            if dist > approach_dist:
+                # Monster far away, switch to approach
+                return "approach"
             if dist < evade_dist:
                 # Monster too close, move away
                 ctx["actions"].append({"type": "evade_monsters", "monsters": gs.monsters})
