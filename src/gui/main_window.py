@@ -12,6 +12,7 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from src.bot import MirBot
+from src.gui.minimap_widget import MinimapWidget
 from src.utils.logger import log
 
 
@@ -79,6 +80,27 @@ class BotWindow(QMainWindow):
         monster_layout.addWidget(self.monster_input)
         layout.addWidget(monster_group)
 
+        # --- Minimap / Waypoint group ---
+        minimap_group = QGroupBox("巡逻路径 (左键添加 / 右键删除)")
+        minimap_layout = QVBoxLayout()
+
+        self.minimap_widget = MinimapWidget()
+        minimap_layout.addWidget(self.minimap_widget)
+
+        btn_layout = QHBoxLayout()
+        self.btn_refresh_map = QPushButton("刷新地图")
+        self.btn_clear_waypoints = QPushButton("清空路径")
+        btn_layout.addWidget(self.btn_refresh_map)
+        btn_layout.addWidget(self.btn_clear_waypoints)
+        minimap_layout.addLayout(btn_layout)
+
+        minimap_group.setLayout(minimap_layout)
+        layout.addWidget(minimap_group)
+
+        self.btn_refresh_map.clicked.connect(self._refresh_minimap)
+        self.btn_clear_waypoints.clicked.connect(self.minimap_widget.clear_waypoints)
+        self.minimap_widget.waypoints_changed.connect(self._on_waypoints_changed)
+
         # Log
         log_group = QGroupBox("日志")
         log_layout = QVBoxLayout(log_group)
@@ -105,6 +127,8 @@ class BotWindow(QMainWindow):
                 self.bot.monster_detector.monster_names = names
                 self._append_log(f"怪物白名单: {names}")
             self.bot.set_mode(mode)
+            if self.bot.config.patrol.waypoints:
+                self.minimap_widget.set_waypoints(self.bot.config.patrol.waypoints)
         except Exception as e:
             self._append_log(f"初始化失败: {e}")
             return
@@ -118,6 +142,7 @@ class BotWindow(QMainWindow):
         self._append_log(f"Bot 已启动，模式: {mode}")
 
     def _on_stop(self):
+        self._save_waypoints()
         if self.bot:
             self.bot.stop()
         self.start_btn.setEnabled(True)
@@ -132,6 +157,50 @@ class BotWindow(QMainWindow):
             self.mp_label.setText(f"MP: {gs.player.mp_ratio:.0%}")
             if self.bot.strategy.current_state:
                 self.state_label.setText(f"状态: {self.bot.strategy.current_state.name}")
+            if self.bot.last_minimap_frame is not None:
+                self.minimap_widget.update_minimap(self.bot.last_minimap_frame)
+
+    def _refresh_minimap(self):
+        """Capture current frame and extract minimap region."""
+        if self.bot is None:
+            return
+        frame = self.bot.screen.capture(self.bot.window.hwnd)
+        if frame is None:
+            return
+        x, y, w, h = self.bot.minimap_region
+        if w > 0 and h > 0:
+            minimap = frame[y:y+h, x:x+w]
+            self.minimap_widget.update_minimap(minimap)
+
+    def _on_waypoints_changed(self, waypoints):
+        """Update config and navigator when waypoints change."""
+        if self.bot is not None:
+            self.bot.config.patrol.waypoints = waypoints
+            self.bot.navigator.set_waypoints(waypoints)
+
+    def _save_waypoints(self):
+        """Save current waypoints to config.yaml."""
+        if self.bot is None:
+            return
+        waypoints = self.minimap_widget.get_waypoints()
+        import yaml
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            if "patrol" not in data:
+                data["patrol"] = {}
+            data["patrol"]["waypoints"] = waypoints
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+            log.info("Waypoints saved: %d points", len(waypoints))
+        except Exception as e:
+            log.error("Failed to save waypoints: %s", e)
+
+    def closeEvent(self, event):
+        self._save_waypoints()
+        if self.bot:
+            self.bot.stop()
+        event.accept()
 
     def _append_log(self, msg: str):
         self.log_text.append(msg)
