@@ -1,5 +1,9 @@
 """OCR-based monster detection."""
 
+import os
+# Must be set before paddle is imported anywhere
+os.environ["FLAGS_use_mkldnn"] = "0"
+
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -33,8 +37,6 @@ class MonsterDetector:
     def _init_ocr(self):
         """Initialize PaddleOCR engine."""
         try:
-            import os
-            os.environ["FLAGS_use_mkldnn"] = "0"
             from paddleocr import PaddleOCR
             return PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
         except Exception as e:
