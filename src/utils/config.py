@@ -33,6 +33,7 @@ class LevelingConfig:
     patrol_points: List[List[int]] = field(default_factory=list)
     loot_enabled: bool = True
     loot_filter: List[str] = field(default_factory=list)
+    monster_names: List[str] = field(default_factory=list)
 
 
 @dataclass

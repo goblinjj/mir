@@ -31,7 +31,9 @@ class MirBot:
         self.window = GameWindow(self.config.game.window_title)
         self.screen = ScreenCapture()
         self.hp_mp = HpMpDetector()
-        self.monster_detector = MonsterDetector()
+        self.monster_detector = MonsterDetector(
+            monster_names=self.config.leveling.monster_names,
+        )
 
         self.keyboard = KeyboardSim()
         self.mouse = MouseSim()
@@ -102,7 +104,10 @@ class MirBot:
         }
         self.strategy.update(ctx)
 
-        self.executor.execute_all(ctx["actions"])
+        try:
+            self.executor.execute_all(ctx["actions"])
+        except Exception as e:
+            log.error("Failed to execute actions: %s", e)
 
     def _update_state(self, frame: np.ndarray):
         """Update game state from a captured frame."""

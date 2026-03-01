@@ -6,7 +6,7 @@ import threading
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QComboBox, QTextEdit, QGroupBox,
-    QApplication,
+    QLineEdit, QApplication,
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -70,6 +70,15 @@ class BotWindow(QMainWindow):
 
         layout.addWidget(ctrl_group)
 
+        # Monster whitelist
+        monster_group = QGroupBox("怪物白名单")
+        monster_layout = QHBoxLayout(monster_group)
+        monster_layout.addWidget(QLabel("怪物名称:"))
+        self.monster_input = QLineEdit()
+        self.monster_input.setPlaceholderText("用逗号分隔，如: 鸡,鹿,稻草人,半兽人")
+        monster_layout.addWidget(self.monster_input)
+        layout.addWidget(monster_group)
+
         # Log
         log_group = QGroupBox("日志")
         log_layout = QVBoxLayout(log_group)
@@ -88,6 +97,13 @@ class BotWindow(QMainWindow):
         mode = self.mode_combo.currentText().split(" - ")[0]
         try:
             self.bot = MirBot(self.config_path)
+            # Parse monster whitelist from GUI input
+            raw = self.monster_input.text().strip()
+            if raw:
+                names = [n.strip() for n in raw.replace("，", ",").split(",") if n.strip()]
+                self.bot.config.leveling.monster_names = names
+                self.bot.monster_detector.monster_names = names
+                self._append_log(f"怪物白名单: {names}")
             self.bot.set_mode(mode)
         except Exception as e:
             self._append_log(f"初始化失败: {e}")

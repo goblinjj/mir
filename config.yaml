@@ -19,6 +19,7 @@ leveling:
   patrol_points: []
   loot_enabled: true
   loot_filter: []
+  monster_names: []   # 怪物白名单，为空则识别所有文字
 
 pet:
   pull_count: 3

@@ -18,6 +18,7 @@ DEFAULT_BOSS_NAMES = [
 ]
 
 
+
 @dataclass
 class DetectedMonster:
     """A monster detected on screen."""
@@ -30,8 +31,10 @@ class DetectedMonster:
 class MonsterDetector:
     """Detects monsters by OCR-reading their overhead names."""
 
-    def __init__(self, boss_names: Optional[List[str]] = None):
+    def __init__(self, boss_names: Optional[List[str]] = None,
+                 monster_names: Optional[List[str]] = None):
         self.boss_names = boss_names or DEFAULT_BOSS_NAMES
+        self.monster_names = monster_names or []
         self.ocr_engine = self._init_ocr()
 
     def _init_ocr(self):
@@ -59,6 +62,10 @@ class MonsterDetector:
             if confidence < 0.5:
                 continue
 
+            name = text.strip()
+            if self.monster_names and not self._matches_whitelist(name):
+                continue
+
             xs = [p[0] for p in bbox]
             ys = [p[1] for p in bbox]
             cx = int(sum(xs) / len(xs))
@@ -67,13 +74,20 @@ class MonsterDetector:
             body_y = cy + 30
 
             monsters.append(DetectedMonster(
-                name=text.strip(),
+                name=name,
                 x=cx,
                 y=body_y,
                 confidence=confidence,
             ))
 
         return monsters
+
+    def _matches_whitelist(self, name: str) -> bool:
+        """Check if name matches any entry in the monster whitelist (substring)."""
+        for wl in self.monster_names:
+            if wl in name or name in wl:
+                return True
+        return False
 
     def classify(self, name: str) -> str:
         """Classify a monster by name. Returns 'boss' or 'normal'."""
