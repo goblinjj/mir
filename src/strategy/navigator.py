@@ -29,7 +29,7 @@ class WaypointNavigator:
         self._path_index: int = 0
         self._path_target_index: int = -1  # which waypoint was this path for
         # How far ahead on the path to look for next step (skip nearby points)
-        self._path_step_size = 3
+        self._path_step_size = 8
 
     def update_path(self, current_pos: Tuple[int, int],
                     walkability_mask: Optional[np.ndarray] = None,
@@ -58,8 +58,11 @@ class WaypointNavigator:
         self._path_target_index = self.current_index
 
         if path:
-            log.info("Navigator: planned path with %d steps to waypoint %d",
-                     len(path), self.current_index)
+            # Log first few steps for debugging
+            preview = path[:10]
+            log.info("Navigator: planned path with %d steps to waypoint %d, "
+                     "start=%s, first steps: %s",
+                     len(path), self.current_index, current_pos, preview)
         else:
             log.warning("Navigator: no path found to waypoint %d (%s)",
                         self.current_index, target)

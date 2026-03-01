@@ -75,14 +75,36 @@ class MinimapAnalyzer:
 
         return labeled if current_label > 0 else None
 
-    def get_walkability_mask(self, frame: np.ndarray) -> np.ndarray:
+    def get_walkability_mask(self, frame: np.ndarray,
+                             erode: int = 0) -> np.ndarray:
         """Generate walkability mask from minimap frame.
+
+        Args:
+            frame: BGR or RGB minimap image (H, W, 3).
+            erode: Number of erosion iterations (shrinks walkable area by
+                   this many pixels, creating a safety margin around walls).
 
         Returns:
             Boolean array (H, W) where True = walkable, False = wall/boundary.
         """
         max_channel = np.max(frame, axis=2)
-        return max_channel >= self.black_threshold
+        mask = max_channel >= self.black_threshold
+        if erode > 0:
+            mask = self._erode_mask(mask, erode)
+        return mask
+
+    @staticmethod
+    def _erode_mask(mask: np.ndarray, iterations: int = 1) -> np.ndarray:
+        """Erode walkability mask (4-neighbor) to create wall safety margin."""
+        result = mask.copy()
+        for _ in range(iterations):
+            eroded = result.copy()
+            eroded[1:, :] &= result[:-1, :]
+            eroded[:-1, :] &= result[1:, :]
+            eroded[:, 1:] &= result[:, :-1]
+            eroded[:, :-1] &= result[:, 1:]
+            result = eroded
+        return result
 
     @staticmethod
     def find_path(

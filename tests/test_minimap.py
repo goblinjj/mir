@@ -88,6 +88,28 @@ class TestWalkability:
         assert not self.analyzer.is_walkable(frame, 0, 999)
 
 
+class TestErosion:
+    def setup_method(self):
+        self.analyzer = MinimapAnalyzer(white_threshold=240, black_threshold=15)
+
+    def test_erode_shrinks_walkable_area(self):
+        frame = _make_frame(bg_color=(60, 50, 40))
+        frame[50:80, 30:60] = (0, 0, 0)  # wall block
+        raw = self.analyzer.get_walkability_mask(frame, erode=0)
+        eroded = self.analyzer.get_walkability_mask(frame, erode=2)
+        # Eroded should have fewer walkable pixels
+        assert np.sum(eroded) < np.sum(raw)
+        # Pixels at wall edge should be eroded away
+        assert raw[49, 35]       # just above wall, walkable in raw
+        assert not eroded[49, 35]  # but not after erosion (within 2px of wall)
+
+    def test_erode_zero_is_noop(self):
+        frame = _make_frame(bg_color=(60, 50, 40))
+        raw = self.analyzer.get_walkability_mask(frame, erode=0)
+        also_raw = self.analyzer.get_walkability_mask(frame)
+        assert np.array_equal(raw, also_raw)
+
+
 class TestFindPath:
     """BFS pathfinding on walkability mask."""
 
