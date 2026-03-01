@@ -32,7 +32,7 @@ screen:
   hp_text_region: [22, 1010, 62, 18]    # "211/211" 文字区域 [x, y, 宽, 高]
   mp_text_region: [84, 1010, 62, 18]   # "814/816" 文字区域 [x, y, 宽, 高]
   game_area: [0, 0, 800, 600]
-  coord_text_region: [0, 0, 0, 0]  # 坐标文字区域 [x, y, 宽, 高]，需要用户自行填写
+  coord_text_region: [122, 1032, 40, 23]  # 坐标文字区域 [x, y, 宽, 高]，需要用户自行填写
 
 colors:
   hp_red: [180, 0, 0]
