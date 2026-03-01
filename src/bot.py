@@ -123,6 +123,9 @@ class MirBot:
             {"name": m.name, "x": m.x, "y": m.y, "type": self.monster_detector.classify(m.name)}
             for m in detected
         ]
+        if detected:
+            names = [m.name for m in detected]
+            log.info(f"OCR detected: {names}")
 
     def set_mode(self, mode: str):
         """Switch leveling mode ('fire' or 'pet')."""

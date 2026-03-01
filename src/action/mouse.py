@@ -28,12 +28,14 @@ class MouseSim:
         if button == "left":
             down_msg = win32con.WM_LBUTTONDOWN
             up_msg = win32con.WM_LBUTTONUP
+            wparam = win32con.MK_LBUTTON
         else:
             down_msg = win32con.WM_RBUTTONDOWN
             up_msg = win32con.WM_RBUTTONUP
+            wparam = win32con.MK_RBUTTON
 
         if self.hwnd:
-            win32gui.PostMessage(self.hwnd, down_msg, 0, lparam)
+            win32gui.PostMessage(self.hwnd, down_msg, wparam, lparam)
             time.sleep(0.05)
             win32gui.PostMessage(self.hwnd, up_msg, 0, lparam)
         else:

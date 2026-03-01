@@ -62,7 +62,7 @@ class ActionExecutor:
             self.mouse.click(target["x"], target["y"])
 
         self.kb.press_key(key)
-        log.debug(f"Used skill {skill_name} ({key})")
+        log.info(f"Skill: {skill_name} ({key})")
 
     def _patrol_move(self, action: dict):
         """Right-click a random position to wander around."""
@@ -70,7 +70,7 @@ class ActionExecutor:
         x = random.randint(self.game_area[0] + margin, self.game_area[0] + self.game_area[2] - margin)
         y = random.randint(self.game_area[1] + margin, self.game_area[1] + self.game_area[3] - margin)
         self.mouse.click(x, y, button="right")
-        log.debug(f"Patrol move -> ({x}, {y})")
+        log.info(f"Patrol: right-click ({x}, {y})")
 
     def _pull(self, action: dict):
         """Run toward monster then run back to pull it to pet."""
@@ -82,14 +82,14 @@ class ActionExecutor:
 
         # Step 1: Right-click toward the monster to approach
         self.mouse.click(mx, my, button="right")
-        log.debug(f"Pull: running toward monster at ({mx}, {my})")
+        log.info(f"Pull: toward monster ({mx}, {my})")
 
         # Step 2: Wait for character to approach
         time.sleep(1.0)
 
         # Step 3: Run back to screen center (where pet is)
         self.mouse.click(self.center_x, self.center_y, button="right")
-        log.debug(f"Pull: running back to center ({self.center_x}, {self.center_y})")
+        log.info(f"Pull: back to center ({self.center_x}, {self.center_y})")
 
     def _evade(self, action: dict):
         """Move away from monsters to let pet tank."""
@@ -125,7 +125,7 @@ class ActionExecutor:
         target_y = max(self.game_area[1] + margin, min(target_y, self.game_area[1] + self.game_area[3] - margin))
 
         self.mouse.click(target_x, target_y, button="right")
-        log.debug(f"Evade -> ({target_x}, {target_y}), away from monsters at ({avg_x:.0f}, {avg_y:.0f})")
+        log.info(f"Evade: right-click ({target_x}, {target_y}), away from ({avg_x:.0f}, {avg_y:.0f})")
 
     def execute_all(self, actions: list):
         """Execute a list of actions."""
