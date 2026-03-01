@@ -2,7 +2,8 @@
 
 import pytest
 
-from src.strategy.pet_mage import build_pet_mage_fsm
+from src.strategy.pet_mage import build_pet_mage_fsm, PatrolState
+from src.strategy.navigator import WaypointNavigator
 from src.state.game import GameState
 
 
@@ -97,3 +98,48 @@ def test_evade_escape_scroll_on_critical_hp_drop():
     assert sm.current_state.name == "evade"
     action_types = [a["type"] for a in ctx["actions"]]
     assert "escape_scroll" in action_types
+
+
+def make_navigator(waypoints=None, arrival_radius=5):
+    return WaypointNavigator(waypoints or [], arrival_radius=arrival_radius)
+
+
+class TestPatrolWaypointNavigation:
+    def test_patrol_uses_navigator_direction(self):
+        """When navigator returns a direction, patrol uses it."""
+        nav = make_navigator([[100, 50]])
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (50, 50)  # player at (50,50), target at (100,50) = East
+        state = PatrolState()
+        result = state.execute(ctx)
+        assert result is None  # stays in patrol
+        actions = ctx["actions"]
+        move_actions = [a for a in actions if a["type"] == "patrol_move"]
+        assert len(move_actions) == 1
+        assert move_actions[0]["direction"] == 2  # East
+
+    def test_patrol_falls_back_to_rotation_without_navigator(self):
+        """When no navigator or no minimap_pos, use old rotation logic."""
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = make_navigator()  # empty waypoints
+        ctx["minimap_pos"] = None
+        state = PatrolState()
+        result = state.execute(ctx)
+        assert result is None
+        actions = ctx["actions"]
+        move_actions = [a for a in actions if a["type"] == "patrol_move"]
+        assert len(move_actions) == 1
+
+
+class TestPatrolTeleport:
+    def test_teleport_resets_to_nearest_waypoint(self):
+        """Large position jump triggers nearest waypoint search."""
+        nav = make_navigator([[10, 10], [90, 90], [50, 50]])
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (80, 80)  # close to waypoint[1] but outside arrival_radius
+        state = PatrolState()
+        state._last_pos = (10, 12)  # was near waypoint[0]
+        state.execute(ctx)
+        assert nav.current_index == 1  # jumped to nearest
