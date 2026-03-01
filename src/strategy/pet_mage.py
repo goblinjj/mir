@@ -29,13 +29,17 @@ class SummonPetState(State):
 
 
 class PatrolState(State):
-    """Systematic directional patrol to explore the map."""
+    """Patrol state: navigate between waypoints or fall back to rotation."""
     name = "patrol"
 
     def __init__(self):
-        self.direction = 0        # 0-7, rotates on stuck
-        self.ticks_in_dir = 0     # how long we've been going this direction
-        self.max_ticks_per_dir = 15  # switch direction after this many ticks even if not stuck
+        # Fallback rotation fields (used when no waypoints)
+        self.direction = 0
+        self.ticks_in_dir = 0
+        self.max_ticks_per_dir = 15
+        # Teleport detection
+        self._last_pos = None
+        self._teleport_threshold = 30  # pixels on minimap
 
     def execute(self, ctx: dict) -> Optional[str]:
         gs = ctx["game_state"]
@@ -50,21 +54,46 @@ class PatrolState(State):
         if gs.has_monsters():
             return self._check_monster_distance(ctx)
 
-        # Stuck detection: rotate direction
+        # Determine move direction
+        navigator = ctx.get("navigator")
+        minimap_pos = ctx.get("minimap_pos")
+        direction = None
+
+        if navigator and minimap_pos and navigator.waypoints:
+            # Teleport detection
+            if self._last_pos is not None:
+                jump_dist = math.hypot(
+                    minimap_pos[0] - self._last_pos[0],
+                    minimap_pos[1] - self._last_pos[1],
+                )
+                if jump_dist > self._teleport_threshold:
+                    navigator.handle_teleport(minimap_pos)
+                    log.info("Patrol: teleport detected, jumping to waypoint %d",
+                             navigator.current_index)
+            self._last_pos = minimap_pos
+            direction = navigator.get_direction(minimap_pos)
+
+        if direction is None:
+            # Fallback: old rotation logic
+            direction = self._rotation_direction(gs)
+
+        ctx["actions"].append({"type": "patrol_move", "direction": direction})
+        return None
+
+    def _rotation_direction(self, gs) -> int:
+        """Fallback direction rotation when no waypoints."""
         if gs.stuck_count >= 3:
             self.direction = (self.direction + 1) % 8
             self.ticks_in_dir = 0
             gs.stuck_count = 0
-            log.info(f"Patrol: stuck, rotating to direction {self.direction}")
+            log.info("Patrol: stuck, rotating to direction %d", self.direction)
 
-        # Also rotate after going in one direction too long
         self.ticks_in_dir += 1
         if self.ticks_in_dir > self.max_ticks_per_dir:
             self.direction = (self.direction + 1) % 8
             self.ticks_in_dir = 0
 
-        ctx["actions"].append({"type": "patrol_move", "direction": self.direction})
-        return None
+        return self.direction
 
     def _check_monster_distance(self, ctx: dict) -> str:
         gs = ctx["game_state"]
