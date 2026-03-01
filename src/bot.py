@@ -16,6 +16,8 @@ from src.action.mouse import MouseSim
 from src.action.executor import ActionExecutor
 from src.strategy.fire_mage import build_fire_mage_fsm
 from src.strategy.pet_mage import build_pet_mage_fsm
+from src.vision.minimap import MinimapAnalyzer
+from src.strategy.navigator import WaypointNavigator
 
 import numpy as np
 
@@ -51,6 +53,19 @@ class MirBot:
             game_area=self.config.screen.game_area,
             safe_distance=self.config.pet.safe_distance,
         )
+
+        # Minimap analyzer
+        self.minimap_region = self.config.minimap.region  # [x, y, w, h]
+        self.minimap_analyzer = MinimapAnalyzer(
+            white_threshold=self.config.minimap.white_threshold,
+            black_threshold=self.config.minimap.black_threshold,
+        )
+        self.navigator = WaypointNavigator(
+            waypoints=self.config.patrol.waypoints,
+            arrival_radius=self.config.minimap.arrival_radius,
+        )
+        self._last_minimap_pos = None
+        self.last_minimap_frame = None
 
         # Strategy
         if self.config.leveling.mode == "pet":
@@ -97,12 +112,19 @@ class MirBot:
             log.error("Failed to update state: %s", e)
             return
 
+        # Minimap player detection
+        minimap_pos = self._detect_minimap_position(frame)
+        if minimap_pos:
+            self._last_minimap_pos = minimap_pos
+
         ctx = {
             "game_state": self.game_state,
             "hp_threshold": self.config.player.hp_threshold,
             "mp_threshold": self.config.player.mp_threshold,
             "grid_pixels": self.config.pet.grid_pixels,
             "actions": [],
+            "navigator": self.navigator,
+            "minimap_pos": self._last_minimap_pos,
         }
         self.strategy.update(ctx)
 
@@ -110,6 +132,15 @@ class MirBot:
             self.executor.execute_all(ctx["actions"])
         except Exception as e:
             log.error("Failed to execute actions: %s", e)
+
+    def _detect_minimap_position(self, frame):
+        """Crop minimap region and detect player white dot."""
+        x, y, w, h = self.minimap_region
+        if w <= 0 or h <= 0:
+            return None
+        minimap = frame[y:y+h, x:x+w]
+        self.last_minimap_frame = minimap
+        return self.minimap_analyzer.detect_player_position(minimap)
 
     def _update_state(self, frame: np.ndarray):
         """Update game state from a captured frame."""
