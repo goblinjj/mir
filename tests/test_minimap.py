@@ -56,16 +56,30 @@ class TestWhiteDotDetection:
         assert abs(x - 30) <= 1
         assert abs(y - 30) <= 1
 
-    def test_detect_multiple_small_dots_picks_smallest(self):
-        """With multiple small clusters, picks the smallest."""
-        frame = _make_frame(dots=[(80, 90)])  # 3x3 = 9px dot
-        # Add a single-pixel white dot
-        frame[50, 50] = (255, 255, 255)
+    def test_detect_ignores_elongated_portal_strokes(self):
+        """Thin elongated white strokes (portal parts) are filtered out."""
+        frame = _make_frame(dots=[(80, 90)])  # 3x3 compact player dot
+        # Add a thin vertical stroke (portal piece): 2x10 = 20 pixels
+        for dy in range(10):
+            frame[30 + dy, 50] = (255, 255, 255)
+            frame[30 + dy, 51] = (255, 255, 255)
         pos = self.analyzer.detect_player_position(frame)
         assert pos is not None
         x, y = pos
-        # Should pick the 1-pixel dot
-        assert x == 50 and y == 50
+        # Should pick the compact dot at (80, 90), not the elongated stroke
+        assert abs(x - 80) <= 1
+        assert abs(y - 90) <= 1
+
+    def test_detect_ignores_noise_pixels(self):
+        """Single stray white pixels are filtered out."""
+        frame = _make_frame(dots=[(80, 90)])  # 3x3 = 9px dot
+        frame[50, 50] = (255, 255, 255)  # 1px noise
+        frame[20, 20] = (255, 255, 255)  # 1px noise
+        pos = self.analyzer.detect_player_position(frame)
+        assert pos is not None
+        x, y = pos
+        assert abs(x - 80) <= 1
+        assert abs(y - 90) <= 1
 
 
 class TestWalkability:

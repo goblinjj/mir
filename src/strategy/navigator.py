@@ -143,7 +143,14 @@ class WaypointNavigator:
                 return direction
 
         # Fallback: straight-line direction
-        return self._straight_line_direction(dx, dy)
+        fallback = self._straight_line_direction(dx, dy)
+        log.info("Navigator: FALLBACK straight-line to waypoint, "
+                 "path_len=%d path_idx=%d dir=%s",
+                 len(self._path), self._path_index,
+                 self._DIR_NAMES[fallback])
+        return fallback
+
+    _DIR_NAMES = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
     def _direction_from_path(self, current_pos: Tuple[int, int]) -> Optional[int]:
         """Get direction from current position toward the next path point."""
@@ -163,7 +170,11 @@ class WaypointNavigator:
         # Map delta to nearest 8-direction
         angle_rad = math.atan2(-ddy, ddx)
         angle_deg = math.degrees(angle_rad) % 360
-        return self._angle_to_direction(angle_deg)
+        direction = self._angle_to_direction(angle_deg)
+        log.info("PathDir: pos=%s path[%d]=%s dx=%d dy=%d angle=%.0f dir=%s",
+                 current_pos, look_idx, (px, py), ddx, ddy, angle_deg,
+                 self._DIR_NAMES[direction])
+        return direction
 
     def _straight_line_direction(self, dx: int, dy: int) -> int:
         """Compute 8-direction from dx/dy delta (straight-line fallback)."""

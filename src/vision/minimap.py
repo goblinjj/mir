@@ -13,15 +13,17 @@ class MinimapAnalyzer:
         self.white_threshold = white_threshold
         self.black_threshold = black_threshold
 
-    # Player dot is typically 3x3 to 5x5 pixels (~9-25 area).
-    # Portal icons ("门" shape) are much larger (50+ pixels).
+    # Player dot: small (3x3 to 5x5 = 9-25 pixels), compact (square-ish).
+    # Portal icons: larger or elongated strokes.
+    _DOT_MIN_PIXELS = 4
     _DOT_MAX_PIXELS = 30
+    _DOT_MIN_COMPACTNESS = 0.5  # fill ratio of bounding box
 
     def detect_player_position(self, frame: np.ndarray) -> Optional[Tuple[int, int]]:
         """Detect the white dot (player) on the minimap frame.
 
-        The player dot is a small white cluster (~9-25 pixels).
-        Larger white shapes (portal icons, text) are filtered out.
+        The player dot is a small, compact white cluster (~9-25 pixels).
+        Larger or elongated white shapes (portal icons, text) are filtered out.
 
         Args:
             frame: BGR or RGB minimap image (H, W, 3).
@@ -32,14 +34,12 @@ class MinimapAnalyzer:
         if frame is None or frame.size == 0:
             return None
 
-        # All channels must be above threshold (white dot)
         min_channel = np.min(frame, axis=2)
         white_mask = min_channel >= self.white_threshold
 
         if not np.any(white_mask):
             return None
 
-        # Label connected components
         labeled = self._label_components(white_mask)
         if labeled is None:
             return None
@@ -48,19 +48,35 @@ class MinimapAnalyzer:
         if len(unique) == 0:
             return None
 
-        # Filter: keep only small clusters (player dot), reject portals/text
-        # Sort by size ascending — pick the smallest that meets minimum size
-        order = np.argsort(counts)
-        for idx in order:
-            pixel_count = counts[idx]
-            if pixel_count > self._DOT_MAX_PIXELS:
-                break  # remaining are all larger, skip
-            if pixel_count >= 1:
-                label = unique[idx]
-                ys, xs = np.where(labeled == label)
-                return (int(np.mean(xs)), int(np.mean(ys)))
+        # Score each candidate cluster by how "dot-like" it is
+        best_pos = None
+        best_score = -1
 
-        return None
+        for i in range(len(unique)):
+            pixel_count = counts[i]
+            if pixel_count < self._DOT_MIN_PIXELS:
+                continue
+            if pixel_count > self._DOT_MAX_PIXELS:
+                continue
+
+            label = unique[i]
+            ys, xs = np.where(labeled == label)
+            bbox_w = int(xs.max() - xs.min()) + 1
+            bbox_h = int(ys.max() - ys.min()) + 1
+            compactness = pixel_count / (bbox_w * bbox_h)
+
+            if compactness < self._DOT_MIN_COMPACTNESS:
+                continue  # elongated shape (portal stroke), skip
+
+            # Score: prefer compact clusters of typical dot size (9-16 px)
+            size_score = 1.0 - abs(pixel_count - 12) / 20.0
+            score = compactness + max(0, size_score)
+
+            if score > best_score:
+                best_score = score
+                best_pos = (int(np.mean(xs)), int(np.mean(ys)))
+
+        return best_pos
 
     @staticmethod
     def _label_components(mask: np.ndarray) -> np.ndarray:
