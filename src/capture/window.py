@@ -24,7 +24,7 @@ class GameWindow:
         def callback(hwnd, results):
             if win32gui.IsWindowVisible(hwnd):
                 title = win32gui.GetWindowText(hwnd)
-                if self.window_title in title:
+                if self.window_title in title and "MirBot" not in title:
                     results.append(hwnd)
 
         results = []
@@ -32,7 +32,8 @@ class GameWindow:
 
         if results:
             self.hwnd = results[0]
-            log.info(f"Found game window: hwnd={self.hwnd}")
+            title = win32gui.GetWindowText(self.hwnd)
+            log.info(f"Found game window: hwnd={self.hwnd}, title='{title}'")
             return True
 
         log.warning(f"Game window not found: '{self.window_title}'")
