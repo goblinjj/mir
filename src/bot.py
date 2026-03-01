@@ -29,6 +29,7 @@ class MirBot:
         self.config = load_config(config_path)
         self.running = False
         self.game_state = GameState()
+        self.last_actions: list = []  # Last tick's action list for GUI display
 
         # Modules
         self.window = GameWindow(self.config.game.window_title)
@@ -155,6 +156,7 @@ class MirBot:
         }
         self.strategy.update(ctx)
 
+        self.last_actions = ctx["actions"]
         try:
             self.executor.execute_all(ctx["actions"])
         except Exception as e:

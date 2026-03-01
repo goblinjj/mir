@@ -39,16 +39,31 @@ class BotWindow(QMainWindow):
 
         # Status
         status_group = QGroupBox("状态")
-        status_layout = QHBoxLayout(status_group)
+        status_vlayout = QVBoxLayout(status_group)
+
+        # Row 1: running status + HP/MP + FSM state
+        row1 = QHBoxLayout()
         self.status_label = QLabel("已停止")
         self.status_label.setFont(QFont("", 14, QFont.Bold))
         self.hp_label = QLabel("HP: --%")
         self.mp_label = QLabel("MP: --%")
         self.state_label = QLabel("状态: --")
-        status_layout.addWidget(self.status_label)
-        status_layout.addWidget(self.hp_label)
-        status_layout.addWidget(self.mp_label)
-        status_layout.addWidget(self.state_label)
+        row1.addWidget(self.status_label)
+        row1.addWidget(self.hp_label)
+        row1.addWidget(self.mp_label)
+        row1.addWidget(self.state_label)
+        status_vlayout.addLayout(row1)
+
+        # Row 2: monsters + coords + action
+        row2 = QHBoxLayout()
+        self.monster_label = QLabel("怪物: --")
+        self.coord_label = QLabel("坐标: --")
+        self.action_label = QLabel("动作: --")
+        row2.addWidget(self.monster_label)
+        row2.addWidget(self.coord_label)
+        row2.addWidget(self.action_label)
+        status_vlayout.addLayout(row2)
+
         layout.addWidget(status_group)
 
         # Controls
@@ -150,13 +165,69 @@ class BotWindow(QMainWindow):
         self.status_label.setText("已停止")
         self._append_log("Bot 已停止")
 
+    _STATE_NAMES = {
+        "check_pet": "检查宝宝",
+        "summon_pet": "召唤宝宝",
+        "patrol": "巡逻",
+        "approach": "接近怪物",
+        "evade": "走位躲避",
+        "heal": "喝药回血",
+        "dead": "已死亡",
+        "combat": "战斗",
+        "loot": "拾取",
+        "resupply": "补给",
+    }
+
+    _ACTION_NAMES = {
+        "patrol_move": "移动巡逻",
+        "use_skill": "释放技能",
+        "use_hp_potion": "喝红药",
+        "use_mp_potion": "喝蓝药",
+        "approach_monster": "走向怪物",
+        "evade_monsters": "远离怪物",
+        "escape_scroll": "使用随机卷",
+        "push_skill": "推开技能(F2)",
+        "loot_pickup": "拾取物品",
+        "revive": "复活",
+    }
+
     def _update_status(self):
         if self.bot and self.bot.running:
             gs = self.bot.game_state
             self.hp_label.setText(f"HP: {gs.player.hp_ratio:.0%}")
             self.mp_label.setText(f"MP: {gs.player.mp_ratio:.0%}")
             if self.bot.strategy.current_state:
-                self.state_label.setText(f"状态: {self.bot.strategy.current_state.name}")
+                sname = self.bot.strategy.current_state.name
+                display = self._STATE_NAMES.get(sname, sname)
+                self.state_label.setText(f"状态: {display}")
+
+            # Monsters
+            mc = gs.monster_count()
+            if mc > 0:
+                names = [m["name"] for m in gs.monsters[:3]]
+                suffix = f" +{mc - 3}" if mc > 3 else ""
+                self.monster_label.setText(f"怪物({mc}): {', '.join(names)}{suffix}")
+            else:
+                self.monster_label.setText("怪物: 无")
+
+            # Map coordinates
+            px, py = gs.player.map_x, gs.player.map_y
+            if px >= 0 and py >= 0:
+                self.coord_label.setText(f"坐标: ({px}, {py})")
+            else:
+                self.coord_label.setText("坐标: --")
+
+            # Last action
+            actions = getattr(self.bot, "last_actions", [])
+            if actions:
+                descs = []
+                for a in actions[:2]:
+                    atype = a.get("type", "?")
+                    descs.append(self._ACTION_NAMES.get(atype, atype))
+                self.action_label.setText(f"动作: {', '.join(descs)}")
+            else:
+                self.action_label.setText("动作: 等待")
+
             if self.bot.last_minimap_frame is not None:
                 self.minimap_widget.update_minimap(self.bot.last_minimap_frame)
 

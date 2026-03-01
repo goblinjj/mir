@@ -128,7 +128,7 @@ class MonsterDetector:
                 continue
 
             name = text.strip()
-            if self.monster_names and not self._matches_whitelist(name):
+            if not self.monster_names or not self._matches_whitelist(name):
                 continue
 
             # Scale coordinates back to original frame size
