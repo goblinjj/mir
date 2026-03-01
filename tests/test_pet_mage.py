@@ -1,5 +1,6 @@
 """Tests for pet mage leveling strategy."""
 
+import numpy as np
 import pytest
 
 from src.strategy.pet_mage import build_pet_mage_fsm, PatrolState
@@ -132,51 +133,55 @@ class TestPatrolWaypointNavigation:
         assert len(move_actions) == 1
 
 
-class TestPatrolStuckAvoidance:
-    def test_stuck_deflects_direction_in_waypoint_mode(self):
-        """When stuck_count >= 3, patrol deflects direction to avoid wall."""
+class TestPatrolPathfinding:
+    @staticmethod
+    def _make_mask(width=160, height=180, walls=None):
+        mask = np.ones((height, width), dtype=bool)
+        if walls:
+            for (x, y) in walls:
+                mask[y, x] = False
+        return mask
+
+    def test_patrol_uses_bfs_path_with_mask(self):
+        """When walkability_mask is provided, navigator plans a BFS path."""
+        mask = self._make_mask()
         nav = make_navigator([[100, 50]])
-        ctx = make_ctx(pet_alive=True)
-        ctx["navigator"] = nav
-        ctx["minimap_pos"] = (50, 50)  # target East (direction 2)
-        ctx["game_state"].stuck_count = 3
-
-        state = PatrolState()
-        state.execute(ctx)
-
-        move = [a for a in ctx["actions"] if a["type"] == "patrol_move"][0]
-        # East=2, first offset is +2 → direction 4 (South)
-        assert move["direction"] == 4
-
-    def test_stuck_resets_on_movement(self):
-        """When not stuck, avoidance state resets."""
-        nav = make_navigator([[100, 50]])
-        state = PatrolState()
-        state._stuck_phase = 1
-        state._stuck_ticks = 3
-
         ctx = make_ctx(pet_alive=True)
         ctx["navigator"] = nav
         ctx["minimap_pos"] = (50, 50)
-        ctx["game_state"].stuck_count = 0
-        state.execute(ctx)
-
-        assert state._stuck_phase == 0
-        assert state._stuck_ticks == 0
-
-    def test_stuck_cycles_phases(self):
-        """After 5 ticks in one phase, move to next avoidance phase."""
-        nav = make_navigator([[100, 50]])
+        ctx["walkability_mask"] = mask
         state = PatrolState()
-        state._stuck_ticks = 4  # will become 5 → cycle
+        state.execute(ctx)
+        # Navigator should have a path
+        assert len(nav._path) > 0
 
+    def test_patrol_stuck_forces_replan(self):
+        """When stuck_count >= 3, force BFS replan and reset stuck_count."""
+        mask = self._make_mask()
+        nav = make_navigator([[100, 50]])
         ctx = make_ctx(pet_alive=True)
         ctx["navigator"] = nav
         ctx["minimap_pos"] = (50, 50)
+        ctx["walkability_mask"] = mask
         ctx["game_state"].stuck_count = 5
+
+        state = PatrolState()
         state.execute(ctx)
 
-        assert state._stuck_phase == 1  # cycled to next phase
+        # stuck_count should be reset
+        assert ctx["game_state"].stuck_count == 0
+
+    def test_patrol_works_without_mask(self):
+        """Without walkability_mask, still works via straight-line fallback."""
+        nav = make_navigator([[100, 50]])
+        ctx = make_ctx(pet_alive=True)
+        ctx["navigator"] = nav
+        ctx["minimap_pos"] = (50, 50)
+        # No walkability_mask in ctx
+        state = PatrolState()
+        state.execute(ctx)
+        move = [a for a in ctx["actions"] if a["type"] == "patrol_move"][0]
+        assert move["direction"] == 2  # East straight line
 
 
 class TestPatrolTeleport:

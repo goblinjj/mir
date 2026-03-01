@@ -112,10 +112,16 @@ class MirBot:
             log.error("Failed to update state: %s", e)
             return
 
-        # Minimap player detection
+        # Minimap player detection and walkability
         minimap_pos = self._detect_minimap_position(frame)
         if minimap_pos:
             self._last_minimap_pos = minimap_pos
+
+        walkability_mask = None
+        if self.last_minimap_frame is not None:
+            walkability_mask = self.minimap_analyzer.get_walkability_mask(
+                self.last_minimap_frame
+            )
 
         ctx = {
             "game_state": self.game_state,
@@ -125,6 +131,7 @@ class MirBot:
             "actions": [],
             "navigator": self.navigator,
             "minimap_pos": self._last_minimap_pos,
+            "walkability_mask": walkability_mask,
         }
         self.strategy.update(ctx)
 

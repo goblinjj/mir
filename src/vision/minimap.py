@@ -1,6 +1,7 @@
 """Minimap analysis: player position detection and walkability mask."""
 
-from typing import Optional, Tuple
+from collections import deque
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -82,6 +83,74 @@ class MinimapAnalyzer:
         """
         max_channel = np.max(frame, axis=2)
         return max_channel >= self.black_threshold
+
+    @staticmethod
+    def find_path(
+        mask: np.ndarray,
+        start: Tuple[int, int],
+        goal: Tuple[int, int],
+    ) -> List[Tuple[int, int]]:
+        """BFS pathfinding on the walkability mask (8-direction).
+
+        Args:
+            mask: Boolean array (H, W), True = walkable.
+            start: (x, y) start position.
+            goal: (x, y) goal position.
+
+        Returns:
+            List of (x, y) waypoints from start to goal (inclusive),
+            or empty list if unreachable.
+        """
+        sx, sy = start
+        gx, gy = goal
+        h, w = mask.shape
+
+        # Bounds / walkability check
+        if not (0 <= sy < h and 0 <= sx < w and mask[sy, sx]):
+            return []
+        if not (0 <= gy < h and 0 <= gx < w and mask[gy, gx]):
+            return []
+        if (sx, sy) == (gx, gy):
+            return [(sx, sy)]
+
+        # 8-direction offsets: N, NE, E, SE, S, SW, W, NW
+        _DIRS = [(0, -1), (1, -1), (1, 0), (1, 1),
+                 (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+
+        visited = np.zeros((h, w), dtype=bool)
+        visited[sy, sx] = True
+        # Store parent as flat index; -1 = start
+        parent = np.full(h * w, -1, dtype=np.int32)
+        queue = deque()
+        queue.append((sx, sy))
+
+        found = False
+        while queue:
+            cx, cy = queue.popleft()
+            for ddx, ddy in _DIRS:
+                nx, ny = cx + ddx, cy + ddy
+                if 0 <= ny < h and 0 <= nx < w and not visited[ny, nx] and mask[ny, nx]:
+                    visited[ny, nx] = True
+                    parent[ny * w + nx] = cy * w + cx
+                    if nx == gx and ny == gy:
+                        found = True
+                        break
+                    queue.append((nx, ny))
+            if found:
+                break
+
+        if not found:
+            return []
+
+        # Reconstruct path
+        path = []
+        idx = gy * w + gx
+        while idx != -1:
+            y_p, x_p = divmod(idx, w)
+            path.append((x_p, y_p))
+            idx = parent[idx]
+        path.reverse()
+        return path
 
     def is_walkable(self, frame: np.ndarray, x: int, y: int) -> bool:
         """Check if a specific minimap pixel is walkable."""

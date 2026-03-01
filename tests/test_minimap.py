@@ -86,3 +86,56 @@ class TestWalkability:
         frame = _make_frame()
         assert not self.analyzer.is_walkable(frame, -1, 0)
         assert not self.analyzer.is_walkable(frame, 0, 999)
+
+
+class TestFindPath:
+    """BFS pathfinding on walkability mask."""
+
+    @staticmethod
+    def _make_mask(width=20, height=20, walls=None):
+        """Create a small walkability mask with optional wall cells."""
+        mask = np.ones((height, width), dtype=bool)
+        if walls:
+            for (x, y) in walls:
+                mask[y, x] = False
+        return mask
+
+    def test_straight_line_path(self):
+        mask = self._make_mask()
+        path = MinimapAnalyzer.find_path(mask, (0, 0), (5, 0))
+        assert len(path) > 0
+        assert path[0] == (0, 0)
+        assert path[-1] == (5, 0)
+
+    def test_path_around_wall(self):
+        # Wall blocks direct east path at x=3, y=0..2
+        walls = [(3, y) for y in range(3)]
+        mask = self._make_mask(walls=walls)
+        path = MinimapAnalyzer.find_path(mask, (0, 0), (5, 0))
+        assert len(path) > 0
+        assert path[-1] == (5, 0)
+        # Path must not cross the wall
+        for (x, y) in path:
+            assert mask[y, x], f"Path crosses wall at ({x},{y})"
+
+    def test_unreachable_returns_empty(self):
+        # Surround goal with walls
+        walls = [(4, 4), (5, 4), (6, 4), (4, 5), (6, 5), (4, 6), (5, 6), (6, 6)]
+        mask = self._make_mask(walls=walls)
+        path = MinimapAnalyzer.find_path(mask, (0, 0), (5, 5))
+        assert path == []
+
+    def test_start_on_wall_returns_empty(self):
+        mask = self._make_mask(walls=[(0, 0)])
+        path = MinimapAnalyzer.find_path(mask, (0, 0), (5, 5))
+        assert path == []
+
+    def test_goal_on_wall_returns_empty(self):
+        mask = self._make_mask(walls=[(5, 5)])
+        path = MinimapAnalyzer.find_path(mask, (0, 0), (5, 5))
+        assert path == []
+
+    def test_same_start_goal(self):
+        mask = self._make_mask()
+        path = MinimapAnalyzer.find_path(mask, (3, 3), (3, 3))
+        assert path == [(3, 3)]

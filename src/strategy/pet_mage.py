@@ -32,9 +32,6 @@ class PatrolState(State):
     """Patrol state: navigate between waypoints or fall back to rotation."""
     name = "patrol"
 
-    # Direction offsets to try when stuck against a wall (90° CW, 90° CCW, 180°)
-    _STUCK_OFFSETS = [2, -2, 4]
-
     def __init__(self):
         # Fallback rotation fields (used when no waypoints)
         self.direction = 0
@@ -43,9 +40,6 @@ class PatrolState(State):
         # Teleport detection
         self._last_pos = None
         self._teleport_threshold = 30  # pixels on minimap
-        # Stuck wall-avoidance state
-        self._stuck_phase = 0  # index into _STUCK_OFFSETS
-        self._stuck_ticks = 0  # ticks spent in current avoidance phase
 
     def execute(self, ctx: dict) -> Optional[str]:
         gs = ctx["game_state"]
@@ -63,6 +57,7 @@ class PatrolState(State):
         # Determine move direction
         navigator = ctx.get("navigator")
         minimap_pos = ctx.get("minimap_pos")
+        walkability_mask = ctx.get("walkability_mask")
         direction = None
 
         if navigator and minimap_pos and navigator.waypoints:
@@ -77,24 +72,15 @@ class PatrolState(State):
                     log.info("Patrol: teleport detected, jumping to waypoint %d",
                              navigator.current_index)
             self._last_pos = minimap_pos
-            direction = navigator.get_direction(minimap_pos)
 
-            # Wall-avoidance: deflect direction when stuck
-            if direction is not None:
-                if gs.stuck_count >= 3:
-                    offset = self._STUCK_OFFSETS[self._stuck_phase]
-                    direction = (direction + offset) % 8
-                    self._stuck_ticks += 1
-                    # After 5 ticks in one avoidance direction, try next
-                    if self._stuck_ticks >= 5:
-                        self._stuck_phase = (self._stuck_phase + 1) % len(self._STUCK_OFFSETS)
-                        self._stuck_ticks = 0
-                    log.info("Patrol: stuck against wall, deflecting to direction %d (phase %d)",
-                             direction, self._stuck_phase)
-                else:
-                    # Moving fine — reset avoidance state
-                    self._stuck_phase = 0
-                    self._stuck_ticks = 0
+            # BFS path planning (replan when stuck or path invalid)
+            force_replan = gs.stuck_count >= 3
+            navigator.update_path(minimap_pos, walkability_mask,
+                                  force=force_replan)
+            if force_replan:
+                gs.stuck_count = 0
+
+            direction = navigator.get_direction(minimap_pos)
 
         if direction is None:
             # Fallback: old rotation logic
