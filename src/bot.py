@@ -43,7 +43,11 @@ class MirBot:
             "summon": self.config.skills.summon,
             "boss_skill": self.config.skills.boss_skill,
         }
-        self.executor = ActionExecutor(self.keyboard, self.mouse, skill_keys)
+        self.executor = ActionExecutor(
+            self.keyboard, self.mouse, skill_keys,
+            game_area=self.config.screen.game_area,
+            safe_distance=self.config.pet.safe_distance,
+        )
 
         # Strategy
         if self.config.leveling.mode == "pet":
@@ -109,6 +113,10 @@ class MirBot:
         )
         self.game_state.player.hp_ratio = hp_ratio
         self.game_state.player.mp_ratio = mp_ratio
+        # Player is always at screen center in 传奇
+        ga = self.config.screen.game_area
+        self.game_state.player.screen_x = ga[0] + ga[2] // 2
+        self.game_state.player.screen_y = ga[1] + ga[3] // 2
 
         detected = self.monster_detector.detect(frame)
         self.game_state.monsters = [

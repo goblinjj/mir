@@ -37,7 +37,8 @@ class PullState(State):
         if not gs.pet_alive:
             return "check_pet"
         if gs.has_monsters():
-            ctx["actions"].append({"type": "pull_monsters"})
+            target = gs.nearest_monster()
+            ctx["actions"].append({"type": "pull_monsters", "target": target})
             return "evade"
         ctx["actions"].append({"type": "patrol_move"})
         return None
@@ -56,7 +57,7 @@ class EvadeState(State):
             return "check_pet"
         if not gs.has_monsters():
             return "loot"
-        ctx["actions"].append({"type": "evade_monsters"})
+        ctx["actions"].append({"type": "evade_monsters", "monsters": gs.monsters})
         if gs.player.needs_mp_potion(ctx["mp_threshold"]):
             ctx["actions"].append({"type": "use_mp_potion"})
         return None
@@ -81,7 +82,6 @@ class PetLootState(State):
     name = "loot"
 
     def execute(self, ctx: dict) -> Optional[str]:
-        ctx["actions"].append({"type": "loot_pickup"})
         return "pull"
 
 
