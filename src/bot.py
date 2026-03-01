@@ -160,6 +160,21 @@ class MirBot:
         except Exception as e:
             log.error("Failed to execute actions: %s", e)
 
+    def _crop_game_viewport(self, frame: np.ndarray) -> np.ndarray:
+        """Crop frame to the game viewport area for monster OCR.
+
+        Excludes: bottom chat/UI area, right-side minimap, top status bar.
+        Monster names appear in the central game rendering area.
+        """
+        h, w = frame.shape[:2]
+        # Minimap starts at config x; exclude it
+        right = min(self.minimap_region[0], w)
+        # Bottom ~35% is chat + skill bars + status
+        bottom = int(h * 0.65)
+        # Top ~3% is title/status bar
+        top = int(h * 0.03)
+        return frame[top:bottom, 0:right]
+
     def _detect_minimap_position(self, frame):
         """Crop minimap region and detect player white dot."""
         x, y, w, h = self.minimap_region
@@ -185,9 +200,14 @@ class MirBot:
         self.game_state.player.screen_x = self.executor.center_x
         self.game_state.player.screen_y = self.executor.center_y
 
-        detected = self.monster_detector.detect(frame)
+        # Crop to game viewport for OCR (exclude chat area, minimap, etc.)
+        ocr_frame = self._crop_game_viewport(frame)
+        detected = self.monster_detector.detect(ocr_frame)
+        # Offset monster coords back to full-frame (crop starts at y=3% of height)
+        y_offset = int(frame.shape[0] * 0.03)
         self.game_state.monsters = [
-            {"name": m.name, "x": m.x, "y": m.y, "type": self.monster_detector.classify(m.name)}
+            {"name": m.name, "x": m.x, "y": m.y + y_offset,
+             "type": self.monster_detector.classify(m.name)}
             for m in detected
         ]
         if detected:
