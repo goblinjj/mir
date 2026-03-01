@@ -54,3 +54,35 @@ class TestWhiteDotDetection:
         x, y = pos
         assert abs(x - 80) <= 2
         assert abs(y - 90) <= 2
+
+
+class TestWalkability:
+    def setup_method(self):
+        self.analyzer = MinimapAnalyzer(white_threshold=240, black_threshold=15)
+
+    def test_black_is_not_walkable(self):
+        frame = _make_frame(bg_color=(0, 0, 0))  # all black
+        assert not self.analyzer.is_walkable(frame, 80, 90)
+
+    def test_non_black_is_walkable(self):
+        frame = _make_frame(bg_color=(60, 50, 40))  # brownish = walkable
+        assert self.analyzer.is_walkable(frame, 80, 90)
+
+    def test_walkability_mask_shape(self):
+        frame = _make_frame(bg_color=(60, 50, 40))
+        mask = self.analyzer.get_walkability_mask(frame)
+        assert mask.shape == (180, 160)
+        assert mask.dtype == bool
+
+    def test_walkability_mask_mixed(self):
+        frame = _make_frame(bg_color=(60, 50, 40))
+        # Paint a black rectangle (wall)
+        frame[50:80, 30:60] = (0, 0, 0)
+        mask = self.analyzer.get_walkability_mask(frame)
+        assert not mask[65, 45]  # inside black area
+        assert mask[10, 10]      # outside black area
+
+    def test_is_walkable_out_of_bounds(self):
+        frame = _make_frame()
+        assert not self.analyzer.is_walkable(frame, -1, 0)
+        assert not self.analyzer.is_walkable(frame, 0, 999)

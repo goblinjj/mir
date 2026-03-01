@@ -73,3 +73,19 @@ class MinimapAnalyzer:
                                 stack.append((ny, nx))
 
         return labeled if current_label > 0 else None
+
+    def get_walkability_mask(self, frame: np.ndarray) -> np.ndarray:
+        """Generate walkability mask from minimap frame.
+
+        Returns:
+            Boolean array (H, W) where True = walkable, False = wall/boundary.
+        """
+        max_channel = np.max(frame, axis=2)
+        return max_channel >= self.black_threshold
+
+    def is_walkable(self, frame: np.ndarray, x: int, y: int) -> bool:
+        """Check if a specific minimap pixel is walkable."""
+        h, w = frame.shape[:2]
+        if x < 0 or x >= w or y < 0 or y >= h:
+            return False
+        return int(np.max(frame[y, x])) >= self.black_threshold
