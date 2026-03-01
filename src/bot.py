@@ -139,7 +139,7 @@ class MirBot:
                 self.last_minimap_frame
             )
             walkability_mask = self.minimap_analyzer.get_walkability_mask(
-                self.last_minimap_frame, erode=4
+                self.last_minimap_frame, erode=3
             )
 
         ctx = {

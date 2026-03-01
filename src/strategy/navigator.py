@@ -57,7 +57,26 @@ class WaypointNavigator:
             return
 
         goal = (target[0], target[1])
-        path = MinimapAnalyzer.find_path(walkability_mask, current_pos, goal)
+
+        # If player is on eroded-away area, find nearest walkable start
+        start = current_pos
+        h, w = walkability_mask.shape
+        sx, sy = start
+        if 0 <= sy < h and 0 <= sx < w and not walkability_mask[sy, sx]:
+            start = self._nearest_walkable(walkability_mask, current_pos)
+            if start:
+                log.info("Navigator: player near wall, shifted start %s -> %s",
+                         current_pos, start)
+
+        # Also check goal
+        eroded_goal = goal
+        gx, gy = goal
+        if 0 <= gy < h and 0 <= gx < w and not walkability_mask[gy, gx]:
+            eroded_goal = self._nearest_walkable(walkability_mask, goal)
+
+        path = []
+        if start and eroded_goal:
+            path = MinimapAnalyzer.find_path(walkability_mask, start, eroded_goal)
 
         # Fallback: if eroded mask blocks path, try raw mask
         if not path and raw_mask is not None:
@@ -194,6 +213,22 @@ class WaypointNavigator:
                 best_diff = diff
                 best_dir = i
         return best_dir
+
+    @staticmethod
+    def _nearest_walkable(mask: np.ndarray, pos: Tuple[int, int],
+                          max_radius: int = 10) -> Optional[Tuple[int, int]]:
+        """Find the nearest walkable pixel to pos on the mask."""
+        x, y = pos
+        h, w = mask.shape
+        for r in range(1, max_radius + 1):
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    if abs(dx) != r and abs(dy) != r:
+                        continue  # only check perimeter
+                    nx, ny = x + dx, y + dy
+                    if 0 <= ny < h and 0 <= nx < w and mask[ny, nx]:
+                        return (nx, ny)
+        return None
 
     def handle_teleport(self, current_pos: Tuple[int, int]) -> None:
         """After teleport, find the nearest waypoint and set it as target."""
