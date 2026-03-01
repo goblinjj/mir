@@ -83,6 +83,21 @@ class MirBot:
 
         self.keyboard.hwnd = self.window.hwnd
         self.mouse.hwnd = self.window.hwnd
+
+        # Auto-detect game center from actual window client area
+        client_size = self.window.get_client_size()
+        if client_size:
+            cw, ch = client_size
+            # Update game area to actual window size
+            self.executor.game_area = [0, 0, cw, ch]
+            # Character is at center of game viewport
+            # X: horizontally centered
+            # Y: vertically centered (game renders full height, UI overlays)
+            self.executor.center_x = cw // 2
+            self.executor.center_y = ch // 2
+            log.info("Window client area: %dx%d, game center: (%d, %d)",
+                     cw, ch, self.executor.center_x, self.executor.center_y)
+
         self.running = True
         log.info("Bot started")
 

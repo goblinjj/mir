@@ -51,6 +51,18 @@ class GameWindow:
         left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
         return (left, top, right - left, bottom - top)
 
+    def get_client_size(self) -> Optional[Tuple[int, int]]:
+        """Get client area size as (width, height)."""
+        if self.hwnd is None:
+            return None
+        if sys.platform != "win32":
+            return None
+
+        import win32gui
+
+        left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
+        return (right - left, bottom - top)
+
     def is_valid(self) -> bool:
         """Check if the window handle is still valid."""
         if self.hwnd is None:
