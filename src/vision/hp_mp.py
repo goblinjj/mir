@@ -11,7 +11,7 @@ def _init_ocr():
     """Initialize OCR engine for reading HP/MP numbers. PaddleOCR preferred."""
     try:
         from paddleocr import PaddleOCR
-        engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False)
+        engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
         log.info("Using PaddleOCR for HP/MP detection")
         return _PaddleOCRWrapper(engine)
     except Exception:
