@@ -62,6 +62,19 @@ class ColorsConfig:
 
 
 @dataclass
+class MinimapConfig:
+    region: list = field(default_factory=lambda: [0, 0, 0, 0])
+    white_threshold: int = 240
+    black_threshold: int = 15
+    arrival_radius: int = 5
+
+
+@dataclass
+class PatrolConfig:
+    waypoints: list = field(default_factory=list)
+
+
+@dataclass
 class Config:
     game: GameConfig = field(default_factory=GameConfig)
     player: PlayerConfig = field(default_factory=PlayerConfig)
@@ -70,6 +83,8 @@ class Config:
     pet: PetConfig = field(default_factory=PetConfig)
     screen: ScreenConfig = field(default_factory=ScreenConfig)
     colors: ColorsConfig = field(default_factory=ColorsConfig)
+    minimap: MinimapConfig = field(default_factory=MinimapConfig)
+    patrol: PatrolConfig = field(default_factory=PatrolConfig)
 
 
 def _dict_to_dataclass(cls, data: dict):
@@ -93,4 +108,6 @@ def load_config(path: str) -> Config:
         pet=_dict_to_dataclass(PetConfig, raw.get("pet", {})),
         screen=_dict_to_dataclass(ScreenConfig, raw.get("screen", {})),
         colors=_dict_to_dataclass(ColorsConfig, raw.get("colors", {})),
+        minimap=_dict_to_dataclass(MinimapConfig, raw.get("minimap", {})),
+        patrol=_dict_to_dataclass(PatrolConfig, raw.get("patrol", {})),
     )

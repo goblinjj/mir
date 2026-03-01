@@ -39,3 +39,12 @@ colors:
   hp_red_max: [255, 80, 80]
   mp_blue: [0, 0, 180]
   mp_blue_max: [80, 80, 255]
+
+minimap:
+  region: [1230, 30, 160, 180]
+  white_threshold: 240
+  black_threshold: 15
+  arrival_radius: 5
+
+patrol:
+  waypoints: []
