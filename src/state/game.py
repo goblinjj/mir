@@ -16,6 +16,8 @@ class GameState:
     pet_alive: bool = False
     stuck_count: int = 0
     last_move_tick: int = 0
+    last_hp_ratio: float = 1.0
+    hp_dropped: bool = False
 
     def has_monsters(self) -> bool:
         return len(self.monsters) > 0

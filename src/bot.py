@@ -118,6 +118,9 @@ class MirBot:
             self.config.screen.hp_text_region,
             self.config.screen.mp_text_region,
         )
+        # Detect HP drop (compared to last frame)
+        self.game_state.hp_dropped = hp_ratio < self.game_state.last_hp_ratio
+        self.game_state.last_hp_ratio = hp_ratio
         self.game_state.player.hp_ratio = hp_ratio
         self.game_state.player.mp_ratio = mp_ratio
         # Player is always at screen center in 传奇

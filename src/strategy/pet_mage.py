@@ -103,15 +103,16 @@ class ApproachState(State):
                 return "evade"
             ctx["actions"].append({"type": "approach_monster", "target": target})
 
-        # Stuck while approaching — might be blocked
-        if gs.stuck_count >= 5:
-            return "surrounded"
-
         return None
 
 
 class EvadeState(State):
-    """Maintain safe distance from monsters, let pet tank."""
+    """Maintain safe distance from monsters, let pet tank.
+
+    Emergency reactions based on HP drops:
+    - HP drops (被打了) → F2 push skill + evade
+    - HP < 80% and drops again → key 1 escape scroll
+    """
     name = "evade"
 
     def execute(self, ctx: dict) -> Optional[str]:
@@ -125,9 +126,17 @@ class EvadeState(State):
         if not gs.has_monsters():
             return "patrol"
 
-        # Stuck while evading — surrounded
-        if gs.stuck_count >= 3:
-            return "surrounded"
+        # Emergency: HP dropped (being hit)
+        if gs.hp_dropped:
+            if gs.player.hp_ratio < 0.8:
+                # HP < 80% and still dropping → escape with scroll
+                ctx["actions"].append({"type": "escape_scroll"})
+                log.info("HP critical and dropping! Using escape scroll")
+                return None
+            else:
+                # HP dropped but still above 80% → F2 push + evade
+                ctx["actions"].append({"type": "push_skill"})
+                log.info("HP dropped! Using push skill (F2)")
 
         grid_px = ctx.get("grid_pixels", 48)
         evade_dist = 3 * grid_px
@@ -142,46 +151,6 @@ class EvadeState(State):
         # MP potion if needed
         if gs.player.needs_mp_potion(ctx["mp_threshold"]):
             ctx["actions"].append({"type": "use_mp_potion"})
-
-        return None
-
-
-class SurroundedState(State):
-    """Stuck and surrounded — try to escape."""
-    name = "surrounded"
-
-    def __init__(self):
-        self.attempts = 0
-
-    def enter(self, ctx: dict):
-        self.attempts = 0
-        log.info("Surrounded! Attempting to escape...")
-
-    def execute(self, ctx: dict) -> Optional[str]:
-        gs = ctx["game_state"]
-        if gs.player.is_dead:
-            return "dead"
-
-        # If we managed to move, we're free
-        if gs.stuck_count == 0:
-            self.attempts = 0
-            return "patrol"
-
-        self.attempts += 1
-
-        if self.attempts <= 2:
-            # Try F2 push skill to knock back mobs
-            ctx["actions"].append({"type": "push_skill"})
-            # Then try to move away
-            ctx["actions"].append({"type": "evade_monsters", "monsters": gs.monsters})
-        elif self.attempts <= 4:
-            # Still stuck, use random scroll to escape
-            ctx["actions"].append({"type": "escape_scroll"})
-            log.info("Using escape scroll!")
-        else:
-            # Reset and try again
-            self.attempts = 0
-            gs.stuck_count = 0
 
         return None
 
@@ -220,7 +189,6 @@ def build_pet_mage_fsm() -> StateMachine:
     sm.add_state(PatrolState())
     sm.add_state(ApproachState())
     sm.add_state(EvadeState())
-    sm.add_state(SurroundedState())
     sm.add_state(PetHealState())
     sm.add_state(PetDeadState())
     sm.set_initial("check_pet")
